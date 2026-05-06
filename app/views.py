@@ -8,8 +8,8 @@ This file creates your application.
 from functools import wraps
 
 from app import app, db
-from app.models import User, Profile, Interest, profile_interests, Match, Message
-from app.forms import RegistrationForm, LoginForm, ProfileForm
+from app.models import Notification, User, Profile, Interest, profile_interests, Match, Message
+from app.forms import MessageForm, RegistrationForm, LoginForm, ProfileForm
 
 from flask import render_template, request, jsonify, send_file, session
 import os
@@ -125,6 +125,19 @@ def form_boolean(value):
     """Convert form/select value into a Python boolean."""
     return str(value).lower() in ["true", "1", "yes", "on"]
 
+def create_notification(user_id, title, message, notification_type):
+    """Create an in-app notification for a user."""
+
+    notification = Notification(
+        user_id=user_id,
+        title=title,
+        message=message,
+        notification_type=notification_type
+    )
+
+    db.session.add(notification)
+
+    return notification
 ###
 # Authentication routes.
 ###
@@ -302,6 +315,14 @@ def update_theme():
         return jsonify(error="Theme must be light, dark, or system."), 400
 
     user.theme = theme
+
+    create_notification(
+        user_id=user.id,
+        title="Theme updated",
+        message=f"Your theme was changed to {theme}.",
+        notification_type="theme"
+    )
+    
     db.session.commit()
 
     return jsonify(
@@ -568,7 +589,7 @@ def get_messages(match_id):
 def send_message(match_id):
     """Send a message to a matched user."""
     user = current_user()
-
+    
     match = db.session.get(Match, match_id)
 
     if not match:
@@ -589,6 +610,14 @@ def send_message(match_id):
         sender_id=user.id,
         body=form.body.data.strip()
     )
+    
+    other_user = match.other_user(user.id)
+    create_notification(
+        user_id=other_user.id,
+        title="New message",
+        message=f"{user.username} sent you a message.",
+        notification_type="message"
+    )
 
     try:
         db.session.add(message)
@@ -602,6 +631,92 @@ def send_message(match_id):
         data=message.to_dict()
     ), 201
 
+###
+# Notification routes.
+###
+
+@app.route('/api/notifications', methods=['GET'])
+@login_required
+def get_notifications():
+    """Get all notifications for the logged-in user."""
+    user = current_user()
+
+    notifications = Notification.query.filter_by(
+        user_id=user.id
+    ).order_by(
+        Notification.created_at.desc()
+    ).all()
+
+    unread_count = Notification.query.filter_by(
+        user_id=user.id,
+        is_read=False
+    ).count()
+
+    return jsonify(
+        notifications=[
+            notification.to_dict()
+            for notification in notifications
+        ],
+        unread_count=unread_count
+    ), 200
+
+
+@app.route('/api/notifications/unread-count', methods=['GET'])
+@login_required
+def get_unread_notification_count():
+    """Get unread notification count for the logged-in user."""
+    user = current_user()
+
+    unread_count = Notification.query.filter_by(
+        user_id=user.id,
+        is_read=False
+    ).count()
+
+    return jsonify(unread_count=unread_count), 200
+
+
+@app.route('/api/notifications/<int:notification_id>/read', methods=['PUT'])
+@login_required
+def mark_notification_read(notification_id):
+    """Mark one notification as read."""
+    user = current_user()
+
+    notification = db.session.get(Notification, notification_id)
+
+    if not notification:
+        return jsonify(error="Notification not found."), 404
+
+    if notification.user_id != user.id:
+        return jsonify(error="You cannot update this notification."), 403
+
+    notification.is_read = True
+    db.session.commit()
+
+    return jsonify(
+        message="Notification marked as read.",
+        notification=notification.to_dict()
+    ), 200
+
+
+@app.route('/api/notifications/read-all', methods=['PUT'])
+@login_required
+def mark_all_notifications_read():
+    """Mark all notifications as read."""
+    user = current_user()
+
+    notifications = Notification.query.filter_by(
+        user_id=user.id,
+        is_read=False
+    ).all()
+
+    for notification in notifications:
+        notification.is_read = True
+
+    db.session.commit()
+
+    return jsonify(
+        message="All notifications marked as read."
+    ), 200
 
 @app.after_request
 def add_header(response):
