@@ -8,7 +8,7 @@ This file creates your application.
 from functools import wraps
 
 from app import app, db
-from app.models import User, Profile, Interest, profile_interests
+from app.models import User, Profile, Interest, profile_interests, Match, Message
 from app.forms import RegistrationForm, LoginForm, ProfileForm
 
 from flask import render_template, request, jsonify, send_file, session
@@ -493,7 +493,114 @@ def get_profile(profile_id):
 
     return jsonify(profile=profile.to_dict()), 200
 
+###
+# Message routes.
+###
 
+@app.route('/api/conversations', methods=['GET'])
+@login_required
+def get_conversations():
+    """Get all conversations for the logged-in user."""
+    user = current_user()
+
+    matches = Match.query.filter(
+        db.or_(
+            Match.user1_id == user.id,
+            Match.user2_id == user.id
+        )
+    ).order_by(Match.created_at.desc()).all()
+
+    conversations = []
+
+    for match in matches:
+        latest_message = Message.query.filter_by(
+            match_id=match.id
+        ).order_by(
+            Message.created_at.desc()
+        ).first()
+
+        other_user = match.other_user(user.id)
+
+        conversations.append({
+            "match": match.to_dict(user.id),
+            "other_user": other_user.to_dict() if other_user else None,
+            "other_profile": other_user.profile.to_dict() if other_user and other_user.profile else None,
+            "latest_message": latest_message.to_dict() if latest_message else None
+        })
+
+    return jsonify(conversations=conversations), 200
+
+
+@app.route('/api/matches/<int:match_id>/messages', methods=['GET'])
+@login_required
+def get_messages(match_id):
+    """Get message history for a match."""
+    user = current_user()
+
+    match = db.session.get(Match, match_id)
+
+    if not match:
+        return jsonify(error="Match not found."), 404
+
+    if user.id not in [match.user1_id, match.user2_id]:
+        return jsonify(error="You are not part of this match."), 403
+
+    messages = Message.query.filter_by(
+        match_id=match.id
+    ).order_by(
+        Message.created_at.asc()
+    ).all()
+
+    for message in messages:
+        if message.sender_id != user.id:
+            message.is_read = True
+
+    db.session.commit()
+
+    return jsonify(
+        match=match.to_dict(user.id),
+        messages=[message.to_dict() for message in messages]
+    ), 200
+
+
+@app.route('/api/matches/<int:match_id>/messages', methods=['POST'])
+@login_required
+def send_message(match_id):
+    """Send a message to a matched user."""
+    user = current_user()
+
+    match = db.session.get(Match, match_id)
+
+    if not match:
+        return jsonify(error="Match not found."), 404
+
+    if user.id not in [match.user1_id, match.user2_id]:
+        return jsonify(error="You are not part of this match."), 403
+
+    data = request.get_json() or {}
+
+    form = MessageForm(data=data)
+
+    if not form.validate():
+        return jsonify(errors=form_errors(form)), 400
+
+    message = Message(
+        match_id=match.id,
+        sender_id=user.id,
+        body=form.body.data.strip()
+    )
+
+    try:
+        db.session.add(message)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify(error="Message could not be sent."), 500
+
+    return jsonify(
+        message="Message sent successfully.",
+        data=message.to_dict()
+    ), 201
 
 
 @app.after_request

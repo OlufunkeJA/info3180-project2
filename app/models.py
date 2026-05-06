@@ -210,3 +210,103 @@ class Interest(db.Model):
             "id": self.id,
             "name": self.name
         }    
+    
+
+class Match(db.Model):
+    # -------------------------------------------------------------------
+    # Match model for users who mutually like each other
+    # -------------------------------------------------------------------
+
+    __tablename__ = "matches"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user1_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    user2_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    user1 = db.relationship("User", foreign_keys=[user1_id])
+    user2 = db.relationship("User", foreign_keys=[user2_id])
+
+    messages = db.relationship(
+        "Message",
+        back_populates="match",
+        cascade="all, delete-orphan",
+        order_by="Message.created_at"
+    )
+
+    def other_user(self, current_user_id):
+        if self.user1_id == current_user_id:
+            return self.user2
+
+        return self.user1
+
+    def to_dict(self, current_user_id=None):
+        other = self.other_user(current_user_id) if current_user_id else None
+
+        return {
+            "id": self.id,
+            "user1_id": self.user1_id,
+            "user2_id": self.user2_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "other_user": other.to_dict() if other else None,
+            "other_profile": other.profile.to_dict() if other and other.profile else None
+        }
+
+
+class Message(db.Model):
+    # -------------------------------------------------------------------
+    # Message model for chat messages between matched users
+    # -------------------------------------------------------------------
+
+    __tablename__ = "messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    match_id = db.Column(
+        db.Integer,
+        db.ForeignKey("matches.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    sender_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    body = db.Column(db.Text, nullable=False)
+
+    is_read = db.Column(db.Boolean, default=False)
+
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    match = db.relationship("Match", back_populates="messages")
+    sender = db.relationship("User", foreign_keys=[sender_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "match_id": self.match_id,
+            "sender_id": self.sender_id,
+            "sender_username": self.sender.username if self.sender else None,
+            "body": self.body,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }  

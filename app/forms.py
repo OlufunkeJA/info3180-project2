@@ -122,3 +122,18 @@ class SearchForm(FlaskForm):
         'Interests',
         validators=[Optional()]
     )
+
+class MessageForm(FlaskForm):
+
+    class Meta:
+        csrf = False
+
+    body = TextAreaField(
+        'Message',
+        validators=[
+            DataRequired(),
+            Length(min=1, max=2000)
+        ]
+    )
+
+    submit = SubmitField('Send')
