@@ -23,5 +23,8 @@ CORS(app, supports_credentials=True)
 # Ensure uploads folder exists
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-# Import routes and models
-from app import views, models
+# Import models and register blueprints
+from app import models
+from app.routes import register_blueprints
+
+register_blueprints(app)

@@ -1,112 +1,82 @@
-# Add any form classes for Flask-WTF here
-from datetime import date
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField
-from wtforms import StringField, PasswordField, SubmitField, DateField, SelectField, TextAreaField
-from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, NumberRange, Length, Optional
+from wtforms import DateField, IntegerField, PasswordField, SelectField, StringField, SubmitField, TextAreaField
+from wtforms.validators import DataRequired, Email, EqualTo, Length, NumberRange, Optional, ValidationError
 
-from app.models import User
+from app.models import Account
+
 
 class RegistrationForm(FlaskForm):
-    
-    username = StringField('Username', validators=[DataRequired(), Length(min=2, max=80)])
-    
-    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=120)])
-    
-    password = PasswordField('Password', validators=[DataRequired(), Length(min=6, max=255)])
-    confirm_password = PasswordField('Confirm Password', validators=[
-        DataRequired(), 
-        EqualTo('password', message='Passwords must match')])
-    
-    submit = SubmitField('Register')
-    
-    def validate_email(form, field):
-        # validator to check if email is already registered
-        if User.query.filter_by(email=field.data).first():
-            raise ValidationError('Email already registered.')
-        
-    
-    def validate_username(form, field):
-        # validator to check if username is already taken
-        if User.query.filter_by(username=field.data).first():
-            raise ValidationError('Username already taken.')
+    handle = StringField("Handle", validators=[DataRequired(), Length(min=2, max=64)])
+    email_address = StringField("Email Address", validators=[DataRequired(), Email(), Length(max=128)])
+    password = PasswordField("Password", validators=[DataRequired(), Length(min=6, max=255)])
+    confirm_password = PasswordField(
+        "Confirm Password",
+        validators=[DataRequired(), EqualTo("password", message="Passwords must match")],
+    )
+
+    submit = SubmitField("Register")
+
+    def validate_email_address(self, field):
+        if Account.query.filter_by(email_address=field.data.lower().strip()).first():
+            raise ValidationError("Email already registered.")
+
+    def validate_handle(self, field):
+        if Account.query.filter_by(handle=field.data.strip()).first():
+            raise ValidationError("Handle already taken.")
+
 
 class LoginForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    submit = SubmitField('Login')
+    email_address = StringField("Email Address", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Login")
+
 
 class ProfileForm(FlaskForm):
-    first_name = StringField('First Name', validators=[Optional(), Length(max=64)])
-    last_name = StringField('Last Name', validators=[Optional(), Length(max=64)])
-    date_of_birth = DateField('Date of Birth', validators=[
-        Optional()])
-    gender = SelectField('Gender', choices=[
-        ('male', 'Male'), 
-        ('female', 'Female'),   
-        ('non-binary', 'Non-Binary'), 
-        ('other', 'Other')], validators=[Optional()])
-    looking_for = SelectField('Looking For', choices=[
-        ('any', 'Any'), 
-        ('male', 'Male'), 
-        ('female', 'Female'), 
-        ('non-binary', 'Non-Binary')], default='any')   
-    bio = TextAreaField('Bio', validators=[Optional(), Length(max=500)])
+    first_name = StringField("First Name", validators=[Optional(), Length(max=64)])
+    surname = StringField("Surname", validators=[Optional(), Length(max=64)])
+    birthdate = DateField("Birthdate", validators=[Optional()])
+    gender = SelectField(
+        "Gender",
+        choices=[("male", "Male"), ("female", "Female"), ("non-binary", "Non-Binary"), ("other", "Other")],
+        validators=[Optional()],
+    )
+    seeking = SelectField(
+        "Seeking",
+        choices=[("any", "Any"), ("male", "Male"), ("female", "Female"), ("non-binary", "Non-Binary")],
+        default="any",
+    )
+    about_me = TextAreaField("About Me", validators=[Optional(), Length(max=500)])
 
-    parish = StringField('Parish', validators=[Optional(), Length(max=64)])
-    city = StringField('City', validators=[Optional(), Length(max=64)])
-    country = StringField('Country', validators=[Optional(), Length(max=64)])
-    occupation = StringField('Occupation', validators=[Optional(), Length(max=64)])
-    education = StringField('Education', validators=[Optional(), Length(max=64)])
-    minimum_age = StringField('Minimum Interested Age', validators=[Optional(), NumberRange(min=18, max=99)])
-    maximum_age = StringField('Maximum Interested Age', validators=[Optional(), NumberRange(min=18, max=99)])
-    is_pub = SelectField('Public Profile', choices=[
-        ('true', 'Yes'),
-        ('false', 'No')    ], default='true')
-    pfp_accepted = FileField('Profile Picture', validators=[Optional(), FileAllowed(['jpg', 'jpeg', 'png'], 'Images only!')])
-    submit = SubmitField('Update Profile')
+    parish = StringField("Parish", validators=[Optional(), Length(max=64)])
+    city = StringField("City", validators=[Optional(), Length(max=64)])
+    country = StringField("Country", validators=[Optional(), Length(max=64)])
+    job_title = StringField("Job Title", validators=[Optional(), Length(max=128)])
+    schooling = StringField("Schooling", validators=[Optional(), Length(max=64)])
+    min_age = IntegerField("Minimum Interested Age", validators=[Optional(), NumberRange(min=18, max=99)])
+    max_age = IntegerField("Maximum Interested Age", validators=[Optional(), NumberRange(min=18, max=99)])
+    visible = SelectField("Visible Profile", choices=[("true", "Yes"), ("false", "No")], default="true")
+
+    avatar_file = FileField("Profile Picture", validators=[Optional(), FileAllowed(["jpg", "jpeg", "png"], "Images only!")])
+    submit = SubmitField("Update Profile")
 
 
-# Message form for sending messages between users
 class ChatMessageForm(FlaskForm):
-    content = TextAreaField('Message', validators=[DataRequired(), Length(min=1,max=1000)])
-    submit = SubmitField('Send')
+    content = TextAreaField("Message", validators=[DataRequired(), Length(min=1, max=2000)])
+    submit = SubmitField("Send")
 
-#Search form for filtering profiles
+
 class SearchForm(FlaskForm):
-    age_min = StringField('Minimum Age', validators=[Optional(), NumberRange(min=18, max=120)])
-    age_max = StringField('Maximum Age', validators=[Optional(), NumberRange(min=18, max=120
-    )])
-    gender = SelectField('Gender', choices=[
-        ('any', 'Any'), 
-        ('male', 'Male'), 
-        ('female', 'Female'), 
-        ('non-binary', 'Non-Binary')], default='any')
-    parish = StringField(
-        'Parish',
-        validators=[Optional()]
+    age_min = IntegerField("Minimum Age", validators=[Optional(), NumberRange(min=18, max=120)])
+    age_max = IntegerField("Maximum Age", validators=[Optional(), NumberRange(min=18, max=120)])
+    gender = SelectField(
+        "Gender",
+        choices=[("any", "Any"), ("male", "Male"), ("female", "Female"), ("non-binary", "Non-Binary")],
+        default="any",
     )
-
-    interests = StringField(
-        'Interests',
-        validators=[Optional()]
-    )
-
-class ChatMessageForm(FlaskForm):
-    body = TextAreaField(
-        'Message',
-        validators=[
-            DataRequired(),
-            Length(min=1, max=2000)
-        ]
-    )
-
-    submit = SubmitField('Send')
+    parish = StringField("Parish", validators=[Optional()])
+    interests = StringField("Interests", validators=[Optional()])
 
 
-# ---------------------------------------------------------------------------
-# Like / Dislike / Pass
-# ---------------------------------------------------------------------------
 class SwipeForm(FlaskForm):
-    action = SelectField('Action', choices=[('yes', 'Yes'), ('pass', 'Pass'), ('no', 'No')],
-                         validators=[DataRequired()])
+    action = SelectField("Action", choices=[("yes", "Yes"), ("pass", "Pass"), ("no", "No")], validators=[DataRequired()])
