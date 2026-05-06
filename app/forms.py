@@ -137,3 +137,11 @@ class MessageForm(FlaskForm):
     )
 
     submit = SubmitField('Send')
+
+
+# ---------------------------------------------------------------------------
+# Like / Dislike / Pass
+# ---------------------------------------------------------------------------
+class LikeForm(FlaskForm):
+    action = SelectField('Action', choices=[('like', 'Like'), ('pass', 'Pass'), ('dislike', 'Dislike')],
+                         validators=[DataRequired()])
