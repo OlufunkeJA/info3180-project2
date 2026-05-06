@@ -34,6 +34,10 @@
   --color-text: var(--vt-c-text-light-1);
 
   --section-gap: 160px;
+
+  --myPink: rgb(235, 45, 76);
+  --darkPink: rgb(255, 25, 64);
+  --myBG: white;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,6 +51,8 @@
 
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
+
+    --myBG: var(--vt-c-black)
   }
 }
 
@@ -71,4 +77,8 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+nav{
+  background-color: red;
 }
