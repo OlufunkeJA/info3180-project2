@@ -24,7 +24,6 @@ member_likes = db.Table(
 )
 
 #Account
-
 class Account(UserMixin, db.Model):
     __tablename__ = "accounts"
 
@@ -89,7 +88,7 @@ class MemberProfile(db.Model):
     lat       = db.Column(db.Float)
     lng       = db.Column(db.Float)
 
-    # --- Matching preferences ---
+    # --- Connection preferences ---
     min_age       = db.Column(db.Integer, default=18)
     max_age       = db.Column(db.Integer, default=99)
     search_radius = db.Column(db.Integer, default=50)   # kilometres
@@ -176,7 +175,46 @@ class MemberProfile(db.Model):
                 "lng":           self.lng,
             })
         return payload
+class Notification(db.Model):
+    # -------------------------------------------------------------------
+    # Notification model for in-app notifications
+    # -------------------------------------------------------------------
 
+    __tablename__ = "notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    account_id = db.Column(
+        db.Integer,
+        db.ForeignKey("accounts.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    title = db.Column(db.String(120), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+
+    notification_type = db.Column(db.String(50), nullable=False)
+
+    is_read = db.Column(db.Boolean, default=False)
+
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    account = db.relationship("Account", foreign_keys=[account_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "account_id": self.account_id,
+            "title": self.title,
+            "message": self.message,
+            "notification_type": self.notification_type,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+    
 class Likes(db.Model):
     __tablename__ = "likes"
 
@@ -203,7 +241,7 @@ class Swipe(db.Model):
     subject_id = db.Column(
         db.Integer, db.ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
     )
-    verdict    = db.Column(db.String(16), nullable=False)   # 'yes' | 'no'
+    verdict    = db.Column(db.String(16), nullable=False)   # 'yes' | 'no' | 'pass'
     swiped_at  = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
@@ -293,8 +331,8 @@ class ChatMessage(db.Model):
             "sent_at":       self.sent_at.isoformat() if self.sent_at else None,
         }
 
-class Saved(db.Model):
-    __tablename__ = "saved_profiles"
+class Bookmark(db.Model):
+    __tablename__ = "bookmarks"
 
     id         = db.Column(db.Integer, primary_key=True)
     owner_id   = db.Column(
@@ -306,7 +344,7 @@ class Saved(db.Model):
     saved_at   = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        db.UniqueConstraint("owner_id", "target_id", name="uq_saved_entry"),
+        db.UniqueConstraint("owner_id", "target_id", name="uq_bookmark_entry"),
     )
 
     owner  = db.relationship("Account",       foreign_keys=[owner_id])
