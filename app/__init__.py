@@ -7,24 +7,21 @@ from flask_cors import CORS
 
 from .config import Config
 
-db = SQLAlchemy()
-migrate = Migrate()
+app = Flask(__name__)
+app.config.from_object(Config)
 
 
-def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
-    db.init_app(app)
-    migrate.init_app(app, db)
 
-    # Allow Vue frontend to communicate with Flask backend
-    CORS(app, supports_credentials=True)
 
-    # Ensure uploads folder exists
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-    # Import routes and models
-    from app import views, models
+# Allow Vue frontend to communicate with Flask backend
+CORS(app, supports_credentials=True)
 
-    return app
+# Ensure uploads folder exists
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+# Import routes and models
+from app import views, models

@@ -8,7 +8,7 @@ This file creates your application.
 from functools import wraps
 
 from app import app, db
-from app.models import Notification, User, Profile, Interest, profile_interests, Match, Message
+from app.models import *
 from app.forms import MessageForm, RegistrationForm, LoginForm, ProfileForm
 
 from flask import render_template, request, jsonify, send_file, session
@@ -30,24 +30,24 @@ def index():
 # Authentication helper functions.
 ###
 
-def current_user():
-    """Returns the currently logged-in user using session."""
-    user_id = session.get('user_id')
+def current_account():
+    """Returns the currently logged-in account using session."""
+    account_id = session.get('account_id')
 
-    if not user_id:
+    if not account_id:
         return None
 
-    return db.session.get(User, user_id)
+    return db.session.get(Account, account_id)
 
 
 def login_required(route_function):
-    """Decorator to protect routes that require a logged-in user."""
+    """Decorator to protect routes that require a logged-in account."""
 
     @wraps(route_function)
     def wrapper(*args, **kwargs):
-        user = current_user()
+        account = current_account()
 
-        if not user:
+        if not account:
             return jsonify(error="Authentication required."), 401
 
         return route_function(*args, **kwargs)
@@ -62,7 +62,7 @@ def allowed_file(filename):
     )
 
 
-def upload_profile_picture(file, user_id):
+def upload_profile_picture(file, account_id):
     """Upload profile picture to Cloudinary if configured, otherwise save locally."""
 
     if not file or not file.filename:
@@ -75,7 +75,7 @@ def upload_profile_picture(file, user_id):
         upload_result = cloudinary.uploader.upload(
             file,
             folder="driftdater/profile_pictures",
-            public_id=f"user_{user_id}",
+            public_id=f"account_{account_id}",
             overwrite=True,
             resource_type="image"
         )
@@ -83,7 +83,7 @@ def upload_profile_picture(file, user_id):
         return upload_result.get("secure_url")
 
     extension = file.filename.rsplit(".", 1)[1].lower()
-    filename = f"user_{user_id}_{uuid.uuid4().hex}.{extension}"
+    filename = f"account_{account_id}_{uuid.uuid4().hex}.{extension}"
 
     upload_folder = app.config["UPLOAD_FOLDER"]
     os.makedirs(upload_folder, exist_ok=True)
@@ -125,11 +125,11 @@ def form_boolean(value):
     """Convert form/select value into a Python boolean."""
     return str(value).lower() in ["true", "1", "yes", "on"]
 
-def create_notification(user_id, title, message, notification_type):
-    """Create an in-app notification for a user."""
+def create_notification(account_id, title, message, notification_type):
+    """Create an in-app notification for a account."""
 
     notification = Notification(
-        user_id=user_id,
+        account_id=account_id,
         title=title,
         message=message,
         notification_type=notification_type
@@ -144,7 +144,7 @@ def create_notification(user_id, title, message, notification_type):
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    """Register a new user."""
+    """Register a new account."""
     data = request.get_json() or {}
 
     form = RegistrationForm(data=data)
@@ -152,32 +152,32 @@ def register():
     if not form.validate():
         return jsonify(errors=form_errors(form)), 400
 
-    user = User(
+    account = Account(
         username=form.username.data.strip(),
         email=form.email.data.lower().strip()
     )
 
-    user.set_password(form.password.data)
+    account.set_password(form.password.data)
     try: 
-        db.session.add(user)
+        db.session.add(account)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         return jsonify(error="Registration failed."), 500
     
 
-    session['user_id'] = user.id
+    session['account_id'] = account.id
     session.permanent = True
 
     return jsonify(
-        message="User registered successfully.",
-        user=user.to_dict()
+        message="Account registered successfully.",
+        account=account.to_dict()
     ), 201
 
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """Login an existing user."""
+    """Login an existing account."""
     data = request.get_json() or {}
 
     form = LoginForm(data=data)
@@ -188,26 +188,26 @@ def login():
     email = form.email.data.lower().strip()
     password = form.password.data
 
-    user = User.query.filter_by(email=email).first()
+    account = Account.query.filter_by(email=email).first()
 
-    if not user or not user.check_password(password):
+    if not account or not account.check_password(password):
         return jsonify(error="Invalid email or password."), 401
 
-    session['user_id'] = user.id
+    session['account_id'] = account.id
     session.permanent = True
 
     return jsonify(
         message="Login successful.",
-        user=user.to_dict()
+        account=account.to_dict()
     ), 200
 
 @app.route('/api/profile', methods=['POST'])
 @login_required
 def create_profile():
-    """Create a profile for the logged-in user."""
-    user = current_user()
+    """Create a profile for the logged-in account."""
+    account = current_account()
 
-    existing_profile = Profile.query.filter_by(user_id=user.id).first()
+    existing_profile = MemberProfile.query.filter_by(account_id=account.id).first()
 
     if existing_profile:
         return jsonify(error="Profile already exists."), 409
@@ -231,11 +231,11 @@ def create_profile():
     if "profile_picture" in request.files:
         profile_picture = upload_profile_picture(
             request.files["profile_picture"],
-            user.id
+            account.id
         )
 
-    profile = Profile(
-        user_id=user.id,
+    profile =MemberProfile(
+        account_id=account.id,
         first_name=form.first_name.data.strip(),
         last_name=form.last_name.data.strip(),
         date_of_birth=form.date_of_birth.data,
@@ -279,7 +279,7 @@ def get_interests():
 @app.route('/api/logout', methods=['POST'])
 @login_required
 def logout():
-    """Logout the current user."""
+    """Logout the current account."""
     session.clear()
 
     return jsonify(message="Logout successful."), 200
@@ -287,26 +287,26 @@ def logout():
 
 @app.route('/api/session', methods=['GET'])
 def check_session():
-    """Check if a user is currently logged in."""
-    user = current_user()
+    """Check if a account is currently logged in."""
+    account = current_account()
 
-    if not user:
+    if not account:
         return jsonify(
             authenticated=False,
-            user=None
+            account=None
         ), 200
 
     return jsonify(
         authenticated=True,
-        user=user.to_dict()
+        account=account.to_dict()
     ), 200
 
 
 @app.route('/api/settings/theme', methods=['PUT'])
 @login_required
 def update_theme():
-    """Update the user's theme preference."""
-    user = current_user()
+    """Update the account's theme preference."""
+    account = current_account()
     data = request.get_json() or {}
 
     theme = data.get('theme')
@@ -314,10 +314,10 @@ def update_theme():
     if theme not in ['light', 'dark', 'system']:
         return jsonify(error="Theme must be light, dark, or system."), 400
 
-    user.theme = theme
+    account.theme = theme
 
     create_notification(
-        user_id=user.id,
+        account_id=account.id,
         title="Theme updated",
         message=f"Your theme was changed to {theme}.",
         notification_type="theme"
@@ -327,7 +327,7 @@ def update_theme():
 
     return jsonify(
         message="Theme updated successfully.",
-        user=user.to_dict()
+        account=account.to_dict()
     ), 200
 
 
@@ -358,61 +358,16 @@ def send_text_file(file_name):
     return app.send_static_file(file_dot_text)
 
 ###
-# Profile management routes.
+#MemberProfile management routes.
 ###
-
-#@app.route('/api/profile', methods=['POST'])
-#@login_required
-#def create_profile():
-#    """Create a profile for the logged-in user."""
-#    user = current_user()
-#
-#    existing_profile = Profile.query.filter_by(user_id=user.id).first()
-#
-#    if existing_profile:
-#        return jsonify(error="Profile already exists."), 409
-#
-#    data = request.form if request.form else request.get_json() or {}
-#
-#    form = ProfileForm(data=data)
-#
-#    if not form.validate():
-#        return jsonify(errors=form_errors(form)), 400
-#
-#    profile = Profile(
-#        user_id=user.id,
-#        first_name=form.first_name.data.strip(),
-#        last_name=form.last_name.data.strip(),
-#        date_of_birth=form.date_of_birth.data,
-#        bio=form.bio.data,
-#        gender=form.gender.data,
-#        looking_for=form.looking_for.data,
-#        parish=form.parish.data,
-#        city=form.city.data,
-#        country=form.country.data or "Jamaica",
-#        occupation=form.occupation.data,
-#        education=form.education.data,
-#        minimum_age=form.minimum_age.data or 18,
-#        maximum_age=form.maximum_age.data or 99,
-#        is_pub=form.is_pub.data
-#    )
-#
-#    db.session.add(profile)
-#    db.session.commit()
-#
-#    return jsonify(
-#        message="Profile created successfully.",
-#        profile=profile.to_dict()
-#    ), 201
-
 
 @app.route('/api/profile', methods=['GET'])
 @login_required
 def get_my_profile():
-    """Get the logged-in user's profile."""
-    user = current_user()
+    """Get the logged-in account's profile."""
+    account = current_account()
 
-    profile = Profile.query.filter_by(user_id=user.id).first()
+    profile =MemberProfile.query.filter_by(account_id=account.id).first()
 
     if not profile:
         return jsonify(error="Profile not found."), 404
@@ -423,10 +378,10 @@ def get_my_profile():
 @app.route('/api/profile', methods=['PUT'])
 @login_required
 def update_my_profile():
-    """Update the logged-in user's profile."""
-    user = current_user()
+    """Update the logged-in account's profile."""
+    account = current_account()
 
-    profile = Profile.query.filter_by(user_id=user.id).first()
+    profile =MemberProfile.query.filter_by(account_id=account.id).first()
 
     if not profile:
         return jsonify(error="Profile not found."), 404
@@ -451,7 +406,7 @@ def update_my_profile():
     if "profile_picture" in request.files:
         uploaded_picture = upload_profile_picture(
             request.files["profile_picture"],
-            user.id
+            account.id
         )
 
         if uploaded_picture:
@@ -487,12 +442,12 @@ def update_my_profile():
 @app.route('/api/profiles', methods=['GET'])
 @login_required
 def get_profiles():
-    """Get all public profiles except the logged-in user's profile."""
-    user = current_user()
+    """Get all public profiles except the logged-in account's profile."""
+    account = current_account()
 
-    profiles = Profile.query.filter(
-        Profile.user_id != user.id,
-        Profile.is_pub == True
+    profiles =MemberProfile.query.filter(
+       MemberProfile.account_id != account.id,
+       MemberProfile.is_pub == True
     ).all()
 
     return jsonify(
@@ -504,12 +459,12 @@ def get_profiles():
 @login_required
 def get_profile(profile_id):
     """Get a single public profile."""
-    profile = db.session.get(Profile, profile_id)
+    profile = db.session.get(MemberProfile, profile_id)
 
     if not profile:
         return jsonify(error="Profile not found."), 404
 
-    if not profile.is_pub and profile.user_id != current_user().id:
+    if not profile.is_pub and profile.account_id != current_account().id:
         return jsonify(error="This profile is private."), 403
 
     return jsonify(profile=profile.to_dict()), 200
@@ -521,82 +476,82 @@ def get_profile(profile_id):
 @app.route('/api/conversations', methods=['GET'])
 @login_required
 def get_conversations():
-    """Get all conversations for the logged-in user."""
-    user = current_user()
+    """Get all conversations for the logged-in account."""
+    account = current_account()
 
-    matches = Match.query.filter(
+    connections = Connection.query.filter(
         db.or_(
-            Match.user1_id == user.id,
-            Match.user2_id == user.id
+            Connection.account1_id == account.id,
+            Connection.account2_id == account.id
         )
-    ).order_by(Match.created_at.desc()).all()
+    ).order_by(Connection.created_at.desc()).all()
 
     conversations = []
 
-    for match in matches:
+    for connection in connections:
         latest_message = Message.query.filter_by(
-            match_id=match.id
+            connection_id=connection.id
         ).order_by(
             Message.created_at.desc()
         ).first()
 
-        other_user = match.other_user(user.id)
+        other_account = connection.other_account(account.id)
 
         conversations.append({
-            "match": match.to_dict(user.id),
-            "other_user": other_user.to_dict() if other_user else None,
-            "other_profile": other_user.profile.to_dict() if other_user and other_user.profile else None,
+            "connection": connection.to_dict(account.id),
+            "other_account": other_account.to_dict() if other_account else None,
+            "other_profile": other_account.profile.to_dict() if other_account and other_account.profile else None,
             "latest_message": latest_message.to_dict() if latest_message else None
         })
 
     return jsonify(conversations=conversations), 200
 
 
-@app.route('/api/matches/<int:match_id>/messages', methods=['GET'])
+@app.route('/api/connections/<int:connection_id>/messages', methods=['GET'])
 @login_required
-def get_messages(match_id):
-    """Get message history for a match."""
-    user = current_user()
+def get_messages(connection_id):
+    """Get message history for a connection."""
+    account = current_account()
 
-    match = db.session.get(Match, match_id)
+    connection = db.session.get(Connection, connection_id)
 
-    if not match:
-        return jsonify(error="Match not found."), 404
+    if not connection:
+        return jsonify(error="Connection not found."), 404
 
-    if user.id not in [match.user1_id, match.user2_id]:
-        return jsonify(error="You are not part of this match."), 403
+    if account.id not in [connection.account1_id, connection.account2_id]:
+        return jsonify(error="You are not part of this connection."), 403
 
     messages = Message.query.filter_by(
-        match_id=match.id
+        connection_id=connection.id
     ).order_by(
         Message.created_at.asc()
     ).all()
 
     for message in messages:
-        if message.sender_id != user.id:
+        if message.sender_id != account.id:
             message.is_read = True
 
     db.session.commit()
 
     return jsonify(
-        match=match.to_dict(user.id),
+        connection=connection.to_dict(account.id),
         messages=[message.to_dict() for message in messages]
     ), 200
 
 
-@app.route('/api/matches/<int:match_id>/messages', methods=['POST'])
+@app.route('/api/connections/<int:connection_id>/messages', methods=['POST'])
 @login_required
-def send_message(match_id):
-    """Send a message to a matched user."""
-    user = current_user()
+def send_message(connection_id):
+    """Send a message to a connected account."""
+    account = current_account()
     
-    match = db.session.get(Match, match_id)
+    connection = db.session.get(Connection, connection_id)
 
-    if not match:
-        return jsonify(error="Match not found."), 404
+    if not connection:
+        return jsonify(error="Connection not found."), 404
 
-    if user.id not in [match.user1_id, match.user2_id]:
-        return jsonify(error="You are not part of this match."), 403
+    if account.id not in [connection.account1_id, connection.account2_id]:
+        return jsonify(error="You are not part of this connection."), 403
 
     data = request.get_json() or {}
 
@@ -606,16 +561,16 @@ def send_message(match_id):
         return jsonify(errors=form_errors(form)), 400
 
     message = Message(
-        match_id=match.id,
-        sender_id=user.id,
+        connection_id=connection.id,
+        sender_id=account.id,
         body=form.body.data.strip()
     )
     
-    other_user = match.other_user(user.id)
+    other_account = connection.other_account(account.id)
     create_notification(
-        user_id=other_user.id,
+        account_id=other_account.id,
         title="New message",
-        message=f"{user.username} sent you a message.",
+        message=f"{account.username} sent you a message.",
         notification_type="message"
     )
 
@@ -638,17 +593,17 @@ def send_message(match_id):
 @app.route('/api/notifications', methods=['GET'])
 @login_required
 def get_notifications():
-    """Get all notifications for the logged-in user."""
-    user = current_user()
+    """Get all notifications for the logged-in account."""
+    account = current_account()
 
     notifications = Notification.query.filter_by(
-        user_id=user.id
+        account_id=account.id
     ).order_by(
         Notification.created_at.desc()
     ).all()
 
     unread_count = Notification.query.filter_by(
-        user_id=user.id,
+        account_id=account.id,
         is_read=False
     ).count()
 
@@ -664,11 +619,11 @@ def get_notifications():
 @app.route('/api/notifications/unread-count', methods=['GET'])
 @login_required
 def get_unread_notification_count():
-    """Get unread notification count for the logged-in user."""
-    user = current_user()
+    """Get unread notification count for the logged-in account."""
+    account = current_account()
 
     unread_count = Notification.query.filter_by(
-        user_id=user.id,
+        account_id=account.id,
         is_read=False
     ).count()
 
@@ -679,14 +634,14 @@ def get_unread_notification_count():
 @login_required
 def mark_notification_read(notification_id):
     """Mark one notification as read."""
-    user = current_user()
+    account = current_account()
 
     notification = db.session.get(Notification, notification_id)
 
     if not notification:
         return jsonify(error="Notification not found."), 404
 
-    if notification.user_id != user.id:
+    if notification.account_id != account.id:
         return jsonify(error="You cannot update this notification."), 403
 
     notification.is_read = True
@@ -702,10 +657,10 @@ def mark_notification_read(notification_id):
 @login_required
 def mark_all_notifications_read():
     """Mark all notifications as read."""
-    user = current_user()
+    account = current_account()
 
     notifications = Notification.query.filter_by(
-        user_id=user.id,
+        account_id=account.id,
         is_read=False
     ).all()
 
@@ -719,21 +674,21 @@ def mark_all_notifications_read():
     ), 200
 
 ###
-# Like / Dislike / Pass / Matching
+# Like / Dislike / Pass / Connection
 ###
 
-@app.route('/api/profiles/<int:target_user_id>/like', methods=['POST'])
+@app.route('/api/profiles/<int:target_account_id>/like', methods=['POST'])
 @login_required
-def like_or_dislike_or_pass(target_user_id):
-    """Like or dislike or pass on a profile. Creates a Match if mutual."""
-    me = g.current_user
+def like_or_dislike_or_pass(target_account_id):
+    """Like or dislike or pass on a profile. Creates a Connection if mutual."""
+    me = g.current_account
 
-    if me.id == target_user_id:
+    if me.id == target_account_id:
         return jsonify({'error': 'You cannot like your own profile.'}), 400
 
-    target = db.session.get(User, target_user_id)
+    target = db.session.get(Account, target_account_id)
     if not target:
-        return jsonify({'error': 'User not found.'}), 404
+        return jsonify({'error': 'Account not found.'}), 404
 
     data = request.get_json(silent=True) or request.form
     action = (data.get('action') or 'like').lower()
@@ -741,55 +696,55 @@ def like_or_dislike_or_pass(target_user_id):
         return jsonify({'error': "action must be 'like', 'dislike', or 'pass'."}), 400
 
     # Upsert like record
-    existing = Like.query.filter_by(liker_id=me.id, liked_id=target_user_id).first()
+    existing = Like.query.filter_by(liker_id=me.id, liked_id=target_account_id).first()
     if existing:
         existing.action = action
         existing.created_at = datetime.now(timezone.utc)
     else:
-        existing = Like(liker_id=me.id, liked_id=target_user_id, action=action)
+        existing = Like(liker_id=me.id, liked_id=target_account_id, action=action)
         db.session.add(existing)
 
-    match_created = False
-    match_obj = None
+    connection_created = False
+    connection_obj = None
 
-    # Mutual match Check
+    # Mutual connection Check
     if action == 'like':
         reverse = Like.query.filter_by(
-            liker_id=target_user_id, liked_id=me.id, action='like'
+            liker_id=target_account_id, liked_id=me.id, action='like'
         ).first()
         if reverse:
             # Ensure canonical order (smaller id first) to avoid duplicates
-            u1, u2 = (me.id, target_user_id) if me.id < target_user_id \
-                     else (target_user_id, me.id)
-            match_obj = Match.query.filter_by(user1_id=u1, user2_id=u2).first()
-            if not match_obj:
-                match_obj = Match(user1_id=u1, user2_id=u2)
-                db.session.add(match_obj)
-                match_created = True
+            u1, u2 = (me.id, target_account_id) if me.id < target_account_id \
+                     else (target_account_id, me.id)
+            connection_obj = Connection.query.filter_by(account1_id=u1, account2_id=u2).first()
+            if not connection_obj:
+                connection_obj = Connection(account1_id=u1, account2_id=u2)
+                db.session.add(connection_obj)
+                connection_created = True
 
     db.session.commit()
 
     response = {
         'message': f"Action '{action}' recorded.",
         'action': action,
-        'match': match_obj.to_dict(me.id) if match_obj else None,
-        'is_new_match': match_created,
+        'connection': connection_obj.to_dict(me.id) if connection_obj else None,
+        'is_new_connection': connection_created,
     }
     return jsonify(response), 200
 
 
-@app.route('/api/matches', methods=['GET'])
+@app.route('/api/connections', methods=['GET'])
 @token_required
-def get_matches():
-    """Return all mutual matches for the current user."""
-    me = g.current_user
-    matches = Match.query.filter(
-        db.or_(Match.user1_id == me.id, Match.user2_id == me.id)
-    ).order_by(Match.created_at.desc()).all()
+def get_connections():
+    """Return all mutual connections for the current account."""
+    me = g.current_account
+    connections = Connection.query.filter(
+        db.or_(Connection.account1_id == me.id, Connection.account2_id == me.id)
+    ).order_by(Connection.created_at.desc()).all()
 
     return jsonify({
-        'matches': [m.to_dict(me.id) for m in matches],
-        'total': len(matches),
+        'connections': [m.to_dict(me.id) for m in connections],
+        'total': len(connections),
     }), 200
 
 
@@ -800,8 +755,8 @@ def get_matches():
 @login_required
 def get_bookmarks():
     """List bookmarked profiles."""
-    me = g.current_user
-    bookmarks = Bookmark.query.filter_by(user_id=me.id) \
+    me = g.current_account
+    bookmarks = Bookmark.query.filter_by(account_id=me.id) \
                          .order_by(Bookmark.created_at.desc()).all()
     return jsonify({
         'bookmarks': [bookmark.profile.to_dict() for bookmark in bookmarks],
@@ -813,16 +768,16 @@ def get_bookmarks():
 @login_required
 def add_bookmark(profile_id):
     """Bookmark a profile."""
-    me = g.current_user
-    profile = db.session.get(Profile, profile_id)
+    me = g.current_account
+    profile = db.session.get(MemberProfile, profile_id)
     if not profile:
         return jsonify({'error': 'Profile not found.'}), 404
 
-    existing = Bookmark.query.filter_by(user_id=me.id, profile_id=profile_id).first()
+    existing = Bookmark.query.filter_by(account_id=me.id, profile_id=profile_id).first()
     if existing:
         return jsonify({'message': 'Already bookmarked.'}), 200
 
-    fav = Bookmark(user_id=me.id, profile_id=profile_id)
+    fav = Bookmark(account_id=me.id, profile_id=profile_id)
     db.session.add(fav)
     db.session.commit()
     return jsonify({'message': 'Added to bookmarks.'}), 201
@@ -832,8 +787,8 @@ def add_bookmark(profile_id):
 @login_required
 def remove_bookmark(profile_id):
     """Remove a bookmarked profile."""
-    me = g.current_user
-    bookmark = Bookmark.query.filter_by(user_id=me.id, profile_id=profile_id).first()
+    me = g.current_account
+    bookmark = Bookmark.query.filter_by(account_id=me.id, profile_id=profile_id).first()
     if not bookmark:
         return jsonify({'error': 'Not in bookmarks.'}), 404
 
@@ -855,17 +810,17 @@ def get_interests():
 # Report & Block  (Optional Feature #1)
 # ============================================================
 
-@app.route('/api/users/<int:target_id>/report', methods=['POST'])
+@app.route('/api/accounts/<int:target_id>/report', methods=['POST'])
 @login_required
-def report_user(target_id):
-    """Report another user for moderation review."""
-    me = g.current_user
+def report_account(target_id):
+    """Report another account for moderation review."""
+    me = g.current_account
     if me.id == target_id:
         return jsonify({'error': 'Cannot report yourself.'}), 400
 
-    target = db.session.get(User, target_id)
+    target = db.session.get(Account, target_id)
     if not target:
-        return jsonify({'error': 'User not found.'}), 404
+        return jsonify({'error': 'Account not found.'}), 404
 
     data   = request.get_json(silent=True) or request.form
     reason  = (data.get('reason') or '').strip()
@@ -885,46 +840,46 @@ def report_user(target_id):
     return jsonify({'message': 'Report submitted. Our team will review it.'}), 201
 
 
-@app.route('/api/users/<int:target_id>/block', methods=['POST'])
+@app.route('/api/accounts/<int:target_id>/block', methods=['POST'])
 @login_required
-def block_user(target_id):
-    """Block a user"""
-    me = g.current_user
+def block_account(target_id):
+    """Block a account"""
+    me = g.current_account
     if me.id == target_id:
         return jsonify({'error': 'Cannot self-block.'}), 400
 
     existing = Block.query.filter_by(blocker_id=me.id, blocked_id=target_id).first()
     if existing:
-        return jsonify({'message': 'Already blocked this user.'}), 200
+        return jsonify({'message': 'Already blocked this account.'}), 200
 
     block = Block(blocker_id=me.id, blocked_id=target_id)
     db.session.add(block)
     db.session.commit()
-    return jsonify({'message': 'User blocked.'}), 201
+    return jsonify({'message': 'Account blocked.'}), 201
 
 
-@app.route('/api/users/<int:target_id>/unblock', methods=['DELETE'])
+@app.route('/api/accounts/<int:target_id>/unblock', methods=['DELETE'])
 @login_required
-def unblock_user(target_id):
-    """Unblock a previously blocked user."""
-    me = g.current_user
+def unblock_account(target_id):
+    """Unblock a previously blocked account."""
+    me = g.current_account
     block = Block.query.filter_by(blocker_id=me.id, blocked_id=target_id).first()
     if not block:
-        return jsonify({'error': 'User was not blocked.'}), 404
+        return jsonify({'error': 'Account was not blocked.'}), 404
     db.session.delete(block)
     db.session.commit()
-    return jsonify({'message': 'User unblocked.'}), 200
+    return jsonify({'message': 'Account unblocked.'}), 200
 
 
 @app.route('/api/blocks', methods=['GET'])
 @login_required
 def get_blocks():
-    """List all users you have blocked."""
-    me     = g.current_user
+    """List all accounts you have blocked."""
+    me     = g.current_account
     blocks = Block.query.filter_by(blocker_id=me.id).all()
     return jsonify({
         'blocked': [
-            {'user_id': b.blocked_id,
+            {'account_id': b.blocked_id,
              'username': b.blocked.username if b.blocked else None,
              'blocked_at': b.created_at.isoformat() if b.created_at else None}
             for b in blocks
