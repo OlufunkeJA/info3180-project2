@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { requestJson } from '@/services/api'
@@ -10,18 +10,96 @@ const profiles = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 
+const locationFilter = ref('')
+const minAgeFilter = ref(18)
+const maxAgeFilter = ref(99)
+const interestsFilter = ref('')
+const genderFilter = ref('')
+const jobTitleFilter = ref('')
+const schoolingFilter = ref('')
+const sortOption = ref('newest')
+const bookmarkedOnly = ref(false)
+const bookmarkedIds = ref(new Set())
+
+const displayProfiles = computed(() => {
+  return profiles.value.filter((profile) => {
+    return !bookmarkedOnly.value || bookmarkedIds.value.has(profile.id)
+  })
+})
+
 function formatLocation(profile) {
   return [profile.city, profile.parish, profile.country].filter(Boolean).join(', ') || 'Location not set'
+}
+
+async function loadBookmarks() {
+  const { response, data } = await requestJson('/api/bookmarks')
+
+  if (response.ok) {
+    bookmarkedIds.value = new Set((data.bookmarks || []).map((profile) => profile.id))
+  }
+}
+
+function buildProfileQuery() {
+  const params = new URLSearchParams()
+
+  if (locationFilter.value) {
+    params.append('location', locationFilter.value)
+  }
+
+  if (minAgeFilter.value) {
+    params.append('min_age', String(minAgeFilter.value))
+  }
+
+  if (maxAgeFilter.value) {
+    params.append('max_age', String(maxAgeFilter.value))
+  }
+
+  if (interestsFilter.value) {
+    params.append('interests', interestsFilter.value)
+  }
+
+  if (genderFilter.value) {
+    params.append('gender', genderFilter.value)
+  }
+
+  if (jobTitleFilter.value) {
+    params.append('job_title', jobTitleFilter.value)
+  }
+
+  if (schoolingFilter.value) {
+    params.append('schooling', schoolingFilter.value)
+  }
+
+  if (sortOption.value) {
+    params.append('sort', sortOption.value)
+  }
+
+  return params.toString()
+}
+
+async function loadProfiles() {
+  loading.value = true
+  errorMessage.value = ''
+
+  const query = buildProfileQuery()
+  const url = query ? `/api/profiles?${query}` : '/api/profiles'
+
+  const { response, data } = await requestJson(url)
+
+  if (response.ok) {
+    profiles.value = data.profiles || []
+  } else {
+    errorMessage.value = data?.error || 'Unable to load profiles.'
+  }
+
+  loading.value = false
 }
 
 async function loadDashboard() {
   loading.value = true
   errorMessage.value = ''
 
-  const [myProfileResponse, profilesResponse] = await Promise.all([
-    requestJson('/api/profile'),
-    requestJson('/api/profiles')
-  ])
+  const myProfileResponse = await requestJson('/api/profile')
 
   if (myProfileResponse.response.ok) {
     currentProfile.value = myProfileResponse.data.profile
@@ -32,11 +110,8 @@ async function loadDashboard() {
     errorMessage.value = myProfileResponse.data?.error || 'Unable to load your profile.'
   }
 
-  if (profilesResponse.response.ok) {
-    profiles.value = profilesResponse.data.profiles || []
-  } else if (!errorMessage.value) {
-    errorMessage.value = profilesResponse.data?.error || 'Unable to load profiles.'
-  }
+  await loadBookmarks()
+  await loadProfiles()
 
   loading.value = false
 }
@@ -53,6 +128,41 @@ async function swipe(profileId, action) {
   }
 
   profiles.value = profiles.value.filter((profile) => profile.acct_id !== profileId)
+}
+
+function isBookmarked(profileId) {
+  return bookmarkedIds.value.has(profileId)
+}
+
+async function toggleBookmark(profile) {
+  const targetId = profile.id
+  const isSaved = isBookmarked(targetId)
+  const method = isSaved ? 'DELETE' : 'POST'
+  const { response } = await requestJson(`/api/bookmarks/${targetId}`, { method })
+
+  if (!response.ok) {
+    errorMessage.value = 'Unable to update saved profiles.'
+    return
+  }
+
+  if (isSaved) {
+    bookmarkedIds.value.delete(targetId)
+  } else {
+    bookmarkedIds.value.add(targetId)
+  }
+}
+
+function resetFilters() {
+  locationFilter.value = ''
+  minAgeFilter.value = 18
+  maxAgeFilter.value = 99
+  interestsFilter.value = ''
+  genderFilter.value = ''
+  jobTitleFilter.value = ''
+  schoolingFilter.value = ''
+  sortOption.value = 'newest'
+  bookmarkedOnly.value = false
+  loadProfiles()
 }
 
 function edit() {
@@ -84,14 +194,72 @@ onMounted(loadDashboard)
         </div>
       </div>
 
+      <div class="filters">
+        <h3>Search & Discovery</h3>
+
+        <div class="filter-grid">
+          <label>
+            Location
+            <input v-model="locationFilter" type="text" placeholder="City, parish, or country" />
+          </label>
+
+          <label>
+            Age range
+            <div class="age-range">
+              <input v-model.number="minAgeFilter" type="number" min="18" placeholder="Min" />
+              <span>–</span>
+              <input v-model.number="maxAgeFilter" type="number" min="18" placeholder="Max" />
+            </div>
+          </label>
+
+          <label>
+            Interests
+            <input v-model="interestsFilter" type="text" placeholder="Comma-separated interests" />
+          </label>
+
+          <label>
+            Gender
+            <input v-model="genderFilter" type="text" placeholder="Preferred gender" />
+          </label>
+
+          <label>
+            Job title
+            <input v-model="jobTitleFilter" type="text" placeholder="Job title" />
+          </label>
+
+          <label>
+            Schooling
+            <input v-model="schoolingFilter" type="text" placeholder="Education level" />
+          </label>
+
+          <label>
+            Sort by
+            <select v-model="sortOption">
+              <option value="newest">Newest profiles</option>
+              <option value="similar">Most similar</option>
+            </select>
+          </label>
+
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="bookmarkedOnly" />
+            Bookmarked only
+          </label>
+        </div>
+
+        <div class="filter-actions">
+          <button type="button" @click="loadProfiles" class="search">Apply filters</button>
+          <button type="button" @click="resetFilters" class="reset">Reset</button>
+        </div>
+      </div>
+
       <div class="matches">
         <h3>Browse Profiles</h3>
 
         <p v-if="errorMessage" class="status-message">{{ errorMessage }}</p>
         <p v-if="loading">Loading profiles...</p>
-        <p v-else-if="profiles.length === 0">No profiles are available right now.</p>
+        <p v-else-if="displayProfiles.length === 0">No profiles are available right now.</p>
 
-        <div class="matchCard" v-for="match in profiles" :key="match.id">
+        <div class="matchCard" v-for="match in displayProfiles" :key="match.id">
           <img :src="match.avatar_url || '/src/assets/logo.svg'">
 
           <div class="matchCard-right">
@@ -102,6 +270,9 @@ onMounted(loadDashboard)
             </div>
 
             <div class="buttons">
+              <button type="button" @click="toggleBookmark(match)" :class="isBookmarked(match.id) ? 'saved' : 'bookmark'">
+                {{ isBookmarked(match.id) ? 'Saved' : 'Bookmark' }}
+              </button>
               <button type="button" @click="swipe(match.acct_id, 'like')" class="like">Like</button>
               <button type="button" @click="swipe(match.acct_id, 'dislike')" class="dislike">Dislike</button>
               <button type="button" @click="swipe(match.acct_id, 'pass')" class="pass">Pass</button>
@@ -153,6 +324,71 @@ button.reset{
   color: var(--darkPink);
   border: 1px solid var(--darkPink);
   margin: 2px;
+}
+
+button.bookmark,
+button.saved {
+  min-width: 100px;
+  margin: 2px;
+  padding: 10px;
+}
+
+button.bookmark {
+  background-color: rgba(59, 130, 246, 0.9);
+  color: white;
+}
+
+button.saved {
+  background-color: rgba(34, 197, 94, 0.9);
+  color: white;
+}
+
+.filters {
+  margin-bottom: 20px;
+  padding: 20px;
+  border-radius: 2px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.filter-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.filter-grid input,
+.filter-grid select {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.age-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
 }
 
 img{

@@ -27,9 +27,13 @@
                 <button class="block-button" @click="blockUser">Block</button>
               </div>
             </div>
-            <p v-for="message in messages" :key="message.id" class="bubble">
-              <strong>{{ message.author_handle }}:</strong> {{ message.content }}
-            </p>
+            <div class="message-list">
+              <div v-for="message in messages" :key="message.id" class="bubble">
+                <strong>{{ message.author_handle }}:</strong>
+                <p class="bubble-content">{{ message.content }}</p>
+                <span class="message-time">{{ formatTimestamp(message.sent_at) }}</span>
+              </div>
+            </div>
           </template>
           <p v-if="status" class="status-text">{{ status }}</p>
         </div>
@@ -62,6 +66,13 @@ const selectedConnectionId = ref(null)
 const selectedConversation = ref(null)
 const newMessage = ref('')
 const status = ref('')
+
+function formatTimestamp(value) {
+  if (!value) {
+    return ''
+  }
+  return new Date(value).toLocaleString()
+}
 
 async function reportUser() {
   if (!selectedConversation.value || !selectedConversation.value.other_account) {
@@ -214,13 +225,26 @@ button.names{
   color: var(--color-text);
   font-weight: bold;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 8px;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+button.names:hover,
+button.names.active {
+  background-color: rgba(235, 45, 76, 0.14);
 }
 
 button.send{
   background-color: var(--myPink);
-  border-radius: 3px;
+  border-radius: 8px;
   color: var(--myBG);
-  padding: 10px 14px;
+  padding: 12px 18px;
   border: none;
   cursor: pointer;
   width: auto;
@@ -229,20 +253,19 @@ button.send{
 div.msgContainer{
   width: 100%;
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  margin-top: 5px;
+  justify-content: center;
+  padding: 20px;
 }
 
 div.messages{
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   padding: 20px;
-  border-radius: 2px;
+  border-radius: 12px;
   display: grid;
   grid-template-areas: "left right";
-  grid-template-columns: 1fr 4fr;
+  grid-template-columns: 260px minmax(400px, 1fr);
   gap: 20px;
-  width: 80%;
+  width: min(1200px, 100%);
 }
 
 div.right{
@@ -252,6 +275,7 @@ div.right{
   flex-direction: column;
   align-items: stretch;
   gap: 16px;
+  min-height: 540px;
 }
 
 div.left{
@@ -261,6 +285,10 @@ div.left{
   align-items: stretch;
   justify-content: flex-start;
   gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .top{
@@ -299,15 +327,37 @@ button.send{
   width: auto;
 }
 
-p.bubble{
+.bubble{
   background-color: var(--myPink);
-  border-radius: 5px;
+  border-radius: 18px;
   color: var(--myBG);
-  padding: 10px;
+  padding: 12px 16px;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.5;
   align-self: flex-start;
-  max-width: 80%;
+  max-width: 90%;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.message-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 56vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.bubble-content {
+  margin: 8px 0 0;
+}
+
+.message-time {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .conversation-header {

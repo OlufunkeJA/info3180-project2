@@ -2,7 +2,7 @@
   <header>
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
-        <RouterLink class="navbar-brand" to="/">DriftDating💞</RouterLink>
+        <RouterLink class="navbar-brand" to="/">DriftDater💞</RouterLink>
         <button
           class="navbar-toggler"
           type="button"
