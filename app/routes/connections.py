@@ -138,6 +138,19 @@ def like_or_dislike_or_pass(target_account_id):
                 db.session.add(connection_obj)
                 connection_created = True
 
+                create_notification(
+                    account_id=target_account_id,
+                    title="New connection",
+                    message=f"You are now connected with {me.handle}.",
+                    notification_type="connection",
+                )
+                create_notification(
+                    account_id=me.id,
+                    title="New connection",
+                    message=f"You are now connected with {target.handle}.",
+                    notification_type="connection",
+                )
+
     db.session.commit()
 
     response = {

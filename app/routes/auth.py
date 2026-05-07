@@ -1,5 +1,9 @@
 from app.routes.common import *
+from flask_wtf.csrf import generate_csrf
 
+@api_bp.route("/api/csrf-token", methods=["GET"])
+def get_csrf():
+    return jsonify({"csrf_token": generate_csrf()})
 
 @api_bp.route("/api/register", methods=["POST"])
 def register():
@@ -14,7 +18,18 @@ def register():
         email_address=form.email_address.data.lower().strip(),
     )
 
+    profile = MemberProfile(
+        first_name=form.first_name.data.strip(),
+        surname=form.surname.data.strip(),
+        birthdate=form.birthdate.data,
+        gender=form.gender.data,
+        seeking=form.seeking.data or "any",
+        country="Jamaica",
+    )
+
+    account.member_profile = profile
     account.store_password(form.password.data)
+
     try:
         db.session.add(account)
         db.session.commit()
@@ -25,13 +40,18 @@ def register():
     session["account_id"] = account.id
     session.permanent = True
 
-    return jsonify(message="Account registered successfully.", account=account.serialise()), 201
+    return jsonify({
+        "message": "Account registered successfully.",
+        "account": account.serialise(),
+        "profile": profile.serialise(private=True),
+        "token": generate_csrf()
+    }), 201
 
 
 @api_bp.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
-
+    
     form = LoginForm(data=data)
     if not form.validate():
         return jsonify(errors=form_errors(form)), 400
@@ -47,7 +67,11 @@ def login():
     session["account_id"] = account.id
     session.permanent = True
 
-    return jsonify(message="Login successful.", account=account.serialise()), 200
+    return jsonify({
+        "message": "Login successful.",
+        "account": account.serialise(),
+        "token": generate_csrf()
+    }), 200
 
 
 @api_bp.route("/api/logout", methods=["POST"])

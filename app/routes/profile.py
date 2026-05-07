@@ -2,7 +2,6 @@ from app.routes.common import *
 
 
 @api_bp.route("/api/profile", methods=["POST"])
-@login_required
 def create_profile():
     account = current_account()
 
@@ -129,20 +128,30 @@ def update_my_profile():
 
 
 @api_bp.route("/api/profiles", methods=["GET"])
-@login_required
 def get_profiles():
     account = current_account()
+    current_profile = MemberProfile.query.filter_by(acct_id=account.id).first()
 
-    profiles = MemberProfile.query.filter(
+    excluded_subjects = db.session.query(Swipe.subject_id).filter(
+        Swipe.actor_id == account.id,
+        Swipe.verdict.in_(["yes", "no"]),
+    )
+
+    query = MemberProfile.query.filter(
         MemberProfile.acct_id != account.id,
         MemberProfile.visible == True,
-    ).all()
+        ~MemberProfile.acct_id.in_(excluded_subjects),
+    )
+
+    if current_profile and current_profile.seeking and current_profile.seeking != "any":
+        query = query.filter(MemberProfile.gender == current_profile.seeking)
+
+    profiles = query.all()
 
     return jsonify(profiles=[profile.serialise() for profile in profiles]), 200
 
 
 @api_bp.route("/api/profiles/<int:profile_id>", methods=["GET"])
-@login_required
 def get_profile(profile_id):
     profile = db.session.get(MemberProfile, profile_id)
 

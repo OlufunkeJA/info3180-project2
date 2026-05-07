@@ -7,12 +7,28 @@ from app.models import Account
 
 
 class RegistrationForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for API forms
     handle = StringField("Handle", validators=[DataRequired(), Length(min=2, max=64)])
     email_address = StringField("Email Address", validators=[DataRequired(), Email(), Length(max=128)])
     password = PasswordField("Password", validators=[DataRequired(), Length(min=6, max=255)])
     confirm_password = PasswordField(
         "Confirm Password",
         validators=[DataRequired(), EqualTo("password", message="Passwords must match")],
+    )
+
+    first_name = StringField("First Name", validators=[DataRequired(), Length(max=64)])
+    surname = StringField("Surname", validators=[DataRequired(), Length(max=64)])
+    birthdate = DateField("Birthdate", validators=[DataRequired()])
+    gender = SelectField(
+        "Gender",
+        choices=[("female", "Female"), ("male", "Male"), ("other", "Other")],
+        validators=[DataRequired()],
+    )
+    seeking = SelectField(
+        "Seeking",
+        choices=[("any", "Any"), ("female", "Female"), ("male", "Male")],
+        default="any",
     )
 
     submit = SubmitField("Register")
@@ -27,12 +43,17 @@ class RegistrationForm(FlaskForm):
 
 
 class LoginForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for API forms
     email_address = StringField("Email Address", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Login")
 
 
 class ProfileForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for API forms
+
     first_name = StringField("First Name", validators=[Optional(), Length(max=64)])
     surname = StringField("Surname", validators=[Optional(), Length(max=64)])
     birthdate = DateField("Birthdate", validators=[Optional()])
@@ -62,6 +83,9 @@ class ProfileForm(FlaskForm):
 
 
 class ChatMessageForm(FlaskForm):
+    class Meta:
+        csrf = False  # Disable CSRF for API forms
+
     content = TextAreaField("Message", validators=[DataRequired(), Length(min=1, max=2000)])
     submit = SubmitField("Send")
 

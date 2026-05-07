@@ -28,15 +28,15 @@
                 <label for="gender" class="form-label">Gender</label>
                 <select type="text" name="gender" class="gender"> 
                     <option value="select" selected>Select Gender</option>
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
                 </select>
 
                 <label for="anyGender" class="form-label">Looking For</label>
                 <select type="text" name="anyGender" class="anyGender"> 
                     <option value="any" selected>Any</option>
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
                 </select>
 
                 <label for="password" class="form-label">Password</label>
@@ -53,72 +53,61 @@
 </template>
 
 <script setup>
-    import { ref, onMounted } from "vue";
-    import { useRouter } from "vue-router";
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-    const router = useRouter();
+import { requestJson } from '@/services/api'
+import { setSessionAccount } from '@/services/session'
 
-    let csrf_token = ref("");
-    let show = ref(false);
-    let msg = ref("");
-    let type = ref("");
+const router = useRouter()
 
-    function signup(){
-        let signupForm = document.getElementById('signupForm');
-        let form_data = new FormData(signupForm);
+const show = ref(false)
+const msg = ref([])
+const type = ref('')
 
-        fetch("/api/register", {
-            method: 'POST',
-            body: form_data,
-            headers: {
-                'X-CSRFToken': csrf_token.value
-            }
-        })
-        .then(function (response) {
-            if (response.status == 200){
-                msg.value = ["Signup Successful!"];
-                type.value = "success";
-                router.push('/dashboard');
-            }
-            else{
-                type.value = "error";
-            }
+async function signup() {
+  const signupForm = document.getElementById('signupForm')
+  const formData = new FormData(signupForm)
+  const payload = {
+    handle: String(formData.get('username') || '').trim(),
+    email_address: String(formData.get('email') || '').trim(),
+    password: String(formData.get('password') || ''),
+    confirm_password: String(formData.get('password') || ''),
+    first_name: String(formData.get('fName') || '').trim(),
+    surname: String(formData.get('lName') || '').trim(),
+    birthdate: String(formData.get('dob') || '').trim(),
+    gender: String(formData.get('gender') || '').trim(),
+    seeking: String(formData.get('anyGender') || 'any').trim(),
+  }
 
-            return response.json();
-        })
-        .then(function (data) {
-            // display a success message
-            if (type.value == "error"){
-                msg.value = data;
-                console.log(msg);
-            }
+  const { response, data } = await requestJson('/api/register', {
+    method: 'POST',
+    body: payload
+  })
 
-            show.value = true;
-            console.log(data);
-        })
-        .catch(function (error) {
-            console.log(error);
-        });
-    }
+  if (response.ok) {
+    setSessionAccount(data.account)
+    type.value = 'success'
+    msg.value = ['Signup successful.']
+    show.value = true
+    router.push('/')
+    return
+  }
 
-    function getCsrfToken() {
-        fetch('/api/v1/csrf-token')
-        .then((response) => response.json())
-        .then((data) => { console.log(data);
-        csrf_token.value = data.csrf_token;
-        })
-    }
+  type.value = 'error'
+  msg.value = data?.errors || [data?.error || 'Signup failed.']
+  show.value = true
+}
 
-    onMounted(() => {
-        getCsrfToken()
-    })
-
-    function login(){
-        router.push('/login');
-    }
+function login() {
+  router.push('/login')
+}
 </script>
 
 <style>
+textarea{
+    width: 100%;
+}
 a.link{
     float: right;
     text-decoration: none;
@@ -178,12 +167,10 @@ div.control{
 
 form > input{
     margin: 2px;
-    width: 120%;
 }
 
 form > input.submit{
     margin-top: 15px;
-    width: 120%;
     text-decoration: none;
     border: none;
     border-radius: 3px;
@@ -214,6 +201,5 @@ p{
 }
 
 select{
-    width: 120%;
 }
 </style>

@@ -5,9 +5,9 @@
 
             <form @submit.prevent="login" id="loginForm">
                 <label for="email" class="form-label">Email</label>
-                <input type="text" name="email" class="email" placeholder="Example: grp02@gmail.com"/>
+                <input v-model="form.email_address" type="email" name="email_address" class="email" placeholder="Example: grp02@gmail.com" autocomplete="email" required />
                 <label for="password" class="form-label">Password</label>
-                <input type="text" name="password" class="password" placeholder="Example: pwd123">
+                <input v-model="form.password" type="password" name="password" class="password" placeholder="Example: pwd123" autocomplete="current-password" required>
                 <input type="submit" name="submit" class="submit">
             </form>
 
@@ -24,59 +24,45 @@
 </template>
 
 <script setup>
-    import { ref, onMounted } from "vue";
-    import { useRouter } from "vue-router";
-    const router = useRouter()
+import { reactive, ref, onMounted} from 'vue'
+import { useRouter } from 'vue-router'
 
-    let csrf_token = ref("");
-    let show = ref(false);
-    let msg = ref("");
-    let type = ref("");
+import { requestJson } from '@/services/api'
+import { setSessionAccount, setFlash } from '@/services/session'
 
-    function login(){
-        let loginForm = document.getElementById('loginForm');
-        let form_data = new FormData(loginForm);
+const router = useRouter()
 
-        fetch("/api/login", {
-            method: 'POST',
-            body: form_data,
-            headers: {
-                'X-CSRFToken': csrf_token.value
-            }
-        })
-        .then(function (response) {
-            if (response.status == 200){
-                msg.value = ["Login Successful!"];
-                type.value = "success";
-                router.push('/dashboard');
-            }
-            else{
-                type.value = "error";
-                msg.value = ["Credentials incorrect!"]
-            }
+const form = reactive({
+  email_address: '',
+  password: ''
+})
 
-            return response.json();
-        })
-        .catch(function (error) {
-            console.log(error);
-        });
-    }
+const show = ref(false)
+const msg = ref([])
+const type = ref('')
 
-    function getCsrfToken() {
-        fetch('/api/v1/csrf-token')
-        .then((response) => response.json())
-        .then((data) => { console.log(data);
-        csrf_token.value = data.csrf_token;
-        })
-    }
+async function login() {
+  const { response, data } = await requestJson('/api/login', {
+    method: 'POST',
+    body: form,
+  })
 
-    onMounted(() => {
-        getCsrfToken()
-    })
+  if (response.ok) {
+    setSessionAccount(data.account)
+    setFlash(data.message || 'Login successful.', 'success')
+    router.push('/')
+    return
+  }
 
-    function signup(){
-        router.push('/signup')
-    }
+  type.value = 'error'
+  msg.value = data?.errors || [data?.error || 'Login failed.']
+  show.value = true
+}
+
+function signup() {
+  router.push('/signup')
+}
+
 </script>
 
 <style>
@@ -126,7 +112,6 @@ div.formDiv{
     justify-content: center;
     align-items: center;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    width: 25%;
     padding: 20px;
     margin-bottom: 20px;
 }
@@ -140,12 +125,10 @@ div.control{
 
 form > input.email, input.password{
     margin: 2px;
-    width: 120%;
 }
 
 form > input.submit{
     margin-top: 15px;
-    width: 120%;
     text-decoration: none;
     border: none;
     border-radius: 3px;

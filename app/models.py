@@ -141,7 +141,7 @@ class MemberProfile(db.Model):
             return None
         if self.avatar_file.startswith("http"):
             return self.avatar_file
-        return f"/api/v1/uploads/{self.avatar_file}"
+        return f"/api/uploads/{self.avatar_file}"
 
     def serialise(self, private: bool = False) -> dict:
         payload = {
@@ -152,6 +152,7 @@ class MemberProfile(db.Model):
             "surname":      self.surname,
             "display_name": self.display_name,
             "age":          self.current_age,
+            "birthdate":    self.birthdate.isoformat() if self.birthdate else None,
             "gender":       self.gender,
             "seeking":      self.seeking,
             "about_me":     self.about_me,

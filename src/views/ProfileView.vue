@@ -2,7 +2,7 @@
     <div class="container">
         <div class="profile">
             <div class="top">
-                <img src="../assets/logo.svg">
+                <img :src="avatarUrl || '../assets/logo.svg'" :alt="`${fName} ${lName}`" />
                 <h3>{{ fName }} {{ lName }}, {{ age }}</h3>
                 <p>Gender: {{ gender }}</p>
                 <p>Location: {{location}}</p>
@@ -22,44 +22,48 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { requestJson } from '@/services/api'
 
 const router = useRouter();
 
-let fName = ref("Olufunke");
-let lName = ref("Ogunde");
-let age = ref(21);
-let location = ref("St Andrew, Jamaica");
-let bio = ref("Just a girl looking for her fairytale romance ✨💗");
-let email = ref("grp02@gmail.com");
-let look = ref("A big boy!");
-let gender = ref("Female");
+let fName = ref("");
+let lName = ref("");
+let age = ref('');
+let location = ref("");
+let bio = ref("");
+let email = ref("");
+let look = ref("");
+let gender = ref("");
+let avatarUrl = ref('')
 
-fetch("/api/profile", {
-  method: 'GET'
-})
-.then(function (response) {
-  return response.json();
-})
-.then(function (data) {
-  fName.value = data.fName;
-  lName.value = data.lName
-  age.value = data.age;
-  location.value = data.location;
-  bio.value = data.bio;
-  email.value = data.email;
-  look.value = data.looking;
-  gender.value = data.gender;
-})
-.catch(function (error) {
-  console.log(error);
-});
+async function loadProfile() {
+  const { response, data } = await requestJson('/api/profile')
 
-function editProfile(){
-    router.push('/edit-profile');
+  if (response.ok && data.profile) {
+    const profile = data.profile
+    fName.value = profile.first_name || ''
+    lName.value = profile.surname || ''
+    age.value = profile.age ?? ''
+    location.value = [profile.city, profile.parish, profile.country]
+      .filter(Boolean)
+      .join(', ')
+    bio.value = profile.about_me || ''
+    email.value = profile.email_address || ''
+    look.value = profile.seeking || ''
+    gender.value = profile.gender || ''
+    avatarUrl.value = profile.avatar_url || ''
+  } else {
+    console.error(data?.error || 'Unable to load profile.')
+  }
 }
 
+function editProfile() {
+  router.push('/edit-profile')
+}
+
+onMounted(loadProfile)
 </script>
 
 <style>

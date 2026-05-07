@@ -1,140 +1,110 @@
 <script setup>
-import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const router = useRouter();
+import { requestJson } from '@/services/api'
 
-let msg = ref("Welcome!")
-let age = ref(21)
-let location = ref("Kingston, Jamaica")
-let bio = ref("Sample bio")
-let matches = ref([{"name":"Orville", "bio":"A big nerd with an even bigger heart.", "score": 90}, {"name":"Del","bio":"Love me a good Lana concert; avoid me if you don't!", "score": 75}])
+const router = useRouter()
+const currentProfile = ref(null)
+const profiles = ref([])
+const loading = ref(true)
+const errorMessage = ref('')
 
-fetch("/api/profile", {
-  method: 'GET'
-})
-.then(function (response) {
-  return response.json();
-})
-.then(function (data) {
-  msg.value = "Welcome, " + data.fName + data.lName + "!";
-  age.value = data.age;
-  location.value = data.location;
-  bio.value = data.bio;
-})
-.catch(function (error) {
-  console.log(error);
-});
-
-function edit(){
-  router.push('/profile');
+function formatLocation(profile) {
+  return [profile.city, profile.parish, profile.country].filter(Boolean).join(', ') || 'Location not set'
 }
 
-fetch("/api/profiles", {
-  method: 'GET'
-})
-.then(function (response) {
-  return response.json();
-})
-.then(function (data) { 
-  matches.value = data;
-})
-.catch(function (error) {
-  console.log(error);
-});
+async function loadDashboard() {
+  loading.value = true
+  errorMessage.value = ''
 
-function like(){
+  const [myProfileResponse, profilesResponse] = await Promise.all([
+    requestJson('/api/profile'),
+    requestJson('/api/profiles')
+  ])
+
+  if (myProfileResponse.response.ok) {
+    currentProfile.value = myProfileResponse.data.profile
+  } else if (myProfileResponse.response.status === 404) {
+    currentProfile.value = null
+    errorMessage.value = 'Create your profile to start browsing.'
+  } else {
+    errorMessage.value = myProfileResponse.data?.error || 'Unable to load your profile.'
+  }
+
+  if (profilesResponse.response.ok) {
+    profiles.value = profilesResponse.data.profiles || []
+  } else if (!errorMessage.value) {
+    errorMessage.value = profilesResponse.data?.error || 'Unable to load profiles.'
+  }
+
+  loading.value = false
 }
 
-function pass(){
-}
-
-function search(){
-  let filterForm = document.getElementById('filterForm');
-  let form_data = new FormData(filterForm);
-
-  fetch("/api/profiles", {
-    method: 'GET',
-    body: form_data,
-    headers: {
-    'X-CSRFToken': csrf_token.value
-    }
+async function swipe(profileId, action) {
+  const { response, data } = await requestJson(`/api/profiles/${profileId}/like`, {
+    method: 'POST',
+    body: { action }
   })
-  .then(function (response) {
-    return response.json();
-  })
-  .then(function (data) { 
-    matches.value = data;
-  })
-  .catch(function (error) {
-    console.log(error);
-  });
+
+  if (!response.ok) {
+    errorMessage.value = data?.error || 'Unable to record your choice.'
+    return
+  }
+
+  profiles.value = profiles.value.filter((profile) => profile.acct_id !== profileId)
 }
 
-function getCsrfToken() {
-  fetch('/api/csrf-token')
-  .then((response) => response.json())
-  .then((data) => { console.log(data);
-  csrf_token.value = data.csrf_token;
-  })
+function edit() {
+  router.push('/edit-profile')
 }
 
-onMounted(() => {
-  getCsrfToken()
-})
-
-function resetFilters(){
-  document.getElementById("filterForm").reset();
-}
-
+onMounted(loadDashboard)
 </script>
 
 <template>
     <div class="container">
-      <div class="myCard">
-        <img src="../assets/logo.svg">
+      <div v-if="currentProfile" class="myCard">
+        <img :src="currentProfile.avatar_url || '/src/assets/logo.svg'">
 
         <div class="card-right">
-          <h1>{{ msg }}</h1>
-          <p>Age: {{ age }}</p>
-          <p>Location: {{ location }}</p> 
-          <p>Bio: {{ bio }}</p>
-          <button v-on:click="edit">View Profile</button>
+          <h1>Welcome, {{ currentProfile.display_name }}!</h1>
+          <p>Age: {{ currentProfile.age ?? 'N/A' }}</p>
+          <p>Location: {{ formatLocation(currentProfile) }}</p>
+          <p>Bio: {{ currentProfile.about_me || 'Add a short bio in your profile.' }}</p>
+          <button type="button" @click="edit">Edit Profile</button>
+        </div>
+      </div>
+
+      <div v-else class="myCard empty-state">
+        <div class="card-right">
+          <h1>Welcome!</h1>
+          <p>{{ errorMessage || 'Your profile is not set up yet.' }}</p>
+          <button type="button" @click="edit">Create Profile</button>
         </div>
       </div>
 
       <div class="matches">
-        <h3>Browse Possible Matches</h3>
+        <h3>Browse Profiles</h3>
 
-        <form @submit.prevent="search" id="filterForm" ref="filterForm">
-          <input type="text" name="filter" class="filter" placeholder="Search by name or bio.."/>
-          <select type="text" name="ages" class="ages"> 
-            <option value="all" selected>All Ages</option>
-            <option value="young">18-25</option>
-            <option value="mid">25-35</option>
-            <option value="older">35-45</option>
-            <option value="oldest">45+</option>
-          </select>
-          <input type="text" name="locFilter" class="filter" placeholder="Filter by location.."/>
-        </form>
+        <p v-if="errorMessage" class="status-message">{{ errorMessage }}</p>
+        <p v-if="loading">Loading profiles...</p>
+        <p v-else-if="profiles.length === 0">No profiles are available right now.</p>
 
-        <button v-on:click="search" class="search">Show Interest Filters</button>
-        <button v-on:click="resetFilters" type="reset" class="reset">Reset Filters</button>
+        <div class="matchCard" v-for="match in profiles" :key="match.id">
+          <img :src="match.avatar_url || '/src/assets/logo.svg'">
 
-        <div class="matchCard" v-for="match in matches">
-          <img src="../assets/logo.svg">
-
-          <div class="matchCard-right">          
+          <div class="matchCard-right">
             <div class="text">
-              <p class="name">{{ match.name }}</p>
-              <p>{{ match.bio }}</p>
-              <p class="score">Match Score: {{ match.score }}%</p>
+              <p class="name">{{ match.display_name }} <span v-if="match.handle">@{{ match.handle }}</span></p>
+              <p>{{ match.about_me || 'No bio yet.' }}</p>
+              <p class="score">{{ match.age ? `${match.age} years old` : 'Age not listed' }}</p>
             </div>
 
             <div class="buttons">
-              <button v-on:click="like" class="like">Like</button>
-              <button v-on:click="dislike" class="dislike">Dislike</button>
-              <button v-on:click="pass" class="pass">Pass</button>
+              <button type="button" @click="swipe(match.acct_id, 'like')" class="like">Like</button>
+              <button type="button" @click="swipe(match.acct_id, 'dislike')" class="dislike">Dislike</button>
+              <button type="button" @click="swipe(match.acct_id, 'pass')" class="pass">Pass</button>
             </div>
           </div>
         </div>

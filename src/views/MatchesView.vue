@@ -3,13 +3,19 @@
     <h2>Your Matches</h2>
 
     <div class="matches">
-        <div class="matchCard" v-for="match in matches">
-          <img src="../assets/logo.svg">
+        <div class="matchCard" v-for="match in matches" :key="match.id || match.other_profile?.id">
+          <img :src="match.other_profile?.avatar_url || '/src/assets/logo.svg'" :alt="match.other_profile?.display_name || 'Match avatar'">
 
           <div class="matchCard-right">  
-            <p class="name">{{ match.name }}, {{ match.age }}</p>
-            <p>{{ match.bio }}</p>
-            <button v-on:click="message" class="message">Message</button>
+            <p class="name">{{ match.other_profile?.display_name || 'Unknown' }}, {{ match.other_profile?.age ?? 'N/A' }}</p>
+            <p>{{ match.other_profile?.about_me || 'No bio yet.' }}</p>
+            <button
+              @click="message(match.id)"
+              class="message"
+              :disabled="!match.id"
+            >
+              Message
+            </button>
           </div>
         </div>
     </div>
@@ -17,28 +23,33 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
+import { useRouter } from 'vue-router'
+import { requestJson } from '@/services/api'
 
-let matches = ref([{"name":"Orville", "bio":"A big nerd with an even bigger heart.", "age": 22}, {"name":"Del","bio":"Love me a good Lana concert; avoid me if you don't!", "age": 23}])
+const router = useRouter()
+const matches = ref([])
+const errorMessage = ref('')
 
-fetch("/api/", {
-  method: 'GET'
-})
-.then(function (response) {
-  return response.json();
-})
-.then(function (data) { 
-  matches.value = data;
-})
-.catch(function (error) {
-  //console.log(error);
-});
+async function loadMatches() {
+  const { response, data } = await requestJson('/api/connections')
 
-function message(){
-  fetch("/api/", {
-  method: 'GET'
-})
+  if (response.ok && data.connections) {
+    matches.value = data.connections || []
+  } else {
+    errorMessage.value = data?.error || 'Unable to load matches.'
+  }
 }
+
+function message(connectionId) {
+  if (!connectionId) {
+    console.error('Cannot open message: missing connection id')
+    return
+  }
+  router.push({ name: 'messages', query: { connectionId } })
+}
+
+onMounted(loadMatches)
 </script>
 
 <style>
