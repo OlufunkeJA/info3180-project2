@@ -78,6 +78,7 @@
             if (response.status == 200){
                 msg.value = ["Signup Successful!"];
                 type.value = "success";
+                router.push('/dashboard');
             }
             else{
                 type.value = "error";

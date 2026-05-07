@@ -99,7 +99,7 @@ function resetFilters(){
           <p>Age: {{ age }}</p>
           <p>Location: {{ location }}</p> 
           <p>Bio: {{ bio }}</p>
-          <button v-on:click="edit">Edit Profile</button>
+          <button v-on:click="edit">View Profile</button>
         </div>
       </div>
 

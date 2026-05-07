@@ -48,6 +48,7 @@
             if (response.status == 200){
                 msg.value = ["Login Successful!"];
                 type.value = "success";
+                router.push('/dashboard');
             }
             else{
                 type.value = "error";

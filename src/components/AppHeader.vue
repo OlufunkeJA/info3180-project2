@@ -2,7 +2,7 @@
   <header>
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">Dating App</a>
+        <a class="navbar-brand" href="/">Drift Dater</a>
         <button
           class="navbar-toggler"
           type="button"
