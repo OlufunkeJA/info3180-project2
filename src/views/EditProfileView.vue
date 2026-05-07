@@ -2,23 +2,23 @@
     <div class="container">
         <div class="profile">
             <form @submit.prevent="editProfile" id="editForm">
-                <p>Current Email: {{ email }}</p>
+                <p class="current">Current Email: {{ email }}</p>
                 <label for="email" class="form-label">New Email</label>
                 <input type="text" name="email" placeholder="Example: grp02@gmail.com"/>
 
-                <p>Current First Name: {{ fName }}</p>
+                <p class="current">Current First Name: {{ fName }}</p>
                 <label for="fName" class="form-label">New First Name</label>
                 <input type="text" name="fName" placeholder="Example: Jane"/>
 
-                <p>Current Last Name: {{ lName }}</p>
+                <p class="current">Current Last Name: {{ lName }}</p>
                 <label for="lName" class="form-label">New Last Name</label>
                 <input type="text" name="lName" placeholder="Example: Doe"/>
 
-                <p>Current Date of Birth: {{ dob }}</p>
+                <p class="current">Current Date of Birth: {{ dob }}</p>
                 <label for="dob" class="form-label">New Date of Birth</label>
                 <input type="date" name="dob"/>
 
-                <p>Current Gender: {{ gender }}</p>
+                <p class="current">Current Gender: {{ gender }}</p>
                 <label for="gender" class="form-label">New Gender</label>
                 <select type="text" name="gender" class="gender"> 
                     <option value="select" selected>Select Gender</option>
@@ -26,7 +26,7 @@
                     <option value="Male">Male</option>
                 </select>
 
-                <p>Current Looking For: {{ look }}</p>
+                <p class="current">Current Looking For: {{ look }}</p>
                 <label for="anyGender" class="form-label">New Looking For</label>
                 <select type="text" name="anyGender" class="anyGender"> 
                     <option value="any" selected>Any</option>
@@ -34,6 +34,9 @@
                     <option value="Male">Male</option>
                 </select>
 
+                <p class="current">Change Password</p>
+                <label for="password" class="form-label">Old Password</label>
+                <input type="text" name="password">
                 <label for="password" class="form-label">New Password</label>
                 <input type="text" name="password" placeholder="Example: pwd123">
 
@@ -44,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 
 let fName = ref("Olufunke");
 let lName = ref("Ogunde");
@@ -180,15 +183,15 @@ img{
     width: 15%;
 }
 
-input, select{
+label, input, select{
     margin: 0px;
 }
 
-p{
+p.current{
     margin: 0px;
     color: var(--myPink);
     font-weight: bold;
-    margin-top: 7px;
+    margin-top: 20px;
 }
 
 </style>
