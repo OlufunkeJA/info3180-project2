@@ -45,9 +45,10 @@ button.send{
   background-color: var(--myPink);
   border-radius: 3px;
   color: var(--myBG);
-  padding: 2px;
+  padding: 3px;
   width: 9%;
   float: right;
+  border: none;
 }
 
 div.msgContainer{

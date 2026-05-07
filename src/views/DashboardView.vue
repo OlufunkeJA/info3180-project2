@@ -44,15 +44,9 @@ fetch("/api/profiles", {
 });
 
 function like(){
-  fetch("/api/", {
-  method: 'POST'
-})
 }
 
 function pass(){
-  fetch("/api/", {
-  method: 'POST'
-})
 }
 
 function search(){
@@ -89,9 +83,8 @@ onMounted(() => {
   getCsrfToken()
 })
 
-function reset(){
-  this.
-  this.$refs.filterForm.reset();
+function resetFilters(){
+  document.getElementById("filterForm").reset();
 }
 
 </script>
@@ -115,7 +108,7 @@ function reset(){
 
         <form @submit.prevent="search" id="filterForm" ref="filterForm">
           <input type="text" name="filter" class="filter" placeholder="Search by name or bio.."/>
-          <select type="text" name="anyGender" class="anyGender"> 
+          <select type="text" name="ages" class="ages"> 
             <option value="all" selected>All Ages</option>
             <option value="young">18-25</option>
             <option value="mid">25-35</option>
@@ -126,7 +119,7 @@ function reset(){
         </form>
 
         <button v-on:click="search" class="search">Show Interest Filters</button>
-        <button v-on:click="reset" class="reset">Reset Filters</button>
+        <button v-on:click="resetFilters" type="reset" class="reset">Reset Filters</button>
 
         <div class="matchCard" v-for="match in matches">
           <img src="../assets/logo.svg">
