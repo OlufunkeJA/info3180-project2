@@ -234,14 +234,14 @@ img{
     width: 15%;
 }
 
-label, input, select, textarea {
+label, input, select {
     margin: 0px;
     background-color: var(--color-background);
     color: var(--color-text);
     border: none;
 }
 
-input, select, textarea {
+input, select {
     border: 1px solid var(--color-text);
     border-radius: 3px;
 }
