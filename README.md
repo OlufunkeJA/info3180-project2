@@ -149,5 +149,7 @@ psql postgresql://username:password@localhost/database_name -f seed_accounts_pro
 - The frontend expects the backend API to run on the same origin or be proxied appropriately.
 
 ## Known issues / future improvements
-???????????????
+- Parish, city and country attributes are stored as text strings, as opposed to a look-up table making the database redundant when multiple people are from the same area.
+- No provisions were made to support the storage of read-receipt statuses in the messaging portal.
+
 
