@@ -1,7 +1,5 @@
 <template>
     <div class="container">
-        <h2>{{ msg }}</h2>
-
         <div class="profile">
             <div class="top">
                 <img src="../assets/logo.svg">
@@ -25,6 +23,9 @@
 
 <script setup>
 import { ref } from "vue";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 
 let fName = ref("Olufunke");
 let lName = ref("Ogunde");
@@ -54,6 +55,10 @@ fetch("/api/profile", {
 .catch(function (error) {
   console.log(error);
 });
+
+function editProfile(){
+    router.push('/edit-profile');
+}
 
 </script>
 
